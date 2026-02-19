@@ -9,6 +9,12 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# zip / tar / gz / rar / 7z
+*.zip
+*.tar.gz
+*.tar.bz2
+*.tar
+
 # C extensions
 *.so
 
