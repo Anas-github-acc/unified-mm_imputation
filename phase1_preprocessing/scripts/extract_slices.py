@@ -6,12 +6,20 @@ Produces two separate datasets:
   - Baseline: from registered volumes (no N4)
   - Optimized: from N4-corrected volumes
 
+Memory Management:
+  - Uses memory-mapped I/O for NIfTI files to reduce RAM usage
+  - Explicitly deletes volumes after processing each subject
+  - Periodic garbage collection every 10 subjects
+  - Syncs file system buffers to prevent cache buildup
+
 Run: python extract_slices.py --mode both
 """
 
 import os
 import sys
 import argparse
+import gc
+import psutil
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 from functools import partial
@@ -25,9 +33,11 @@ from tqdm import tqdm
 
 
 def load_volume_nibabel(nifti_path: str) -> np.ndarray:
-    """Load a NIfTI volume and return as numpy array."""
-    img = nib.load(nifti_path)
-    data = img.get_fdata().astype(np.float32)
+    """Load a NIfTI volume and return as numpy array using memory mapping."""
+    # Use mmap=True to avoid loading entire volume into memory
+    img = nib.load(nifti_path, mmap=True)
+    # Convert to float32 to ensure consistent dtype
+    data = np.asarray(img.dataobj, dtype=np.float32)
     return data
 
 
@@ -94,6 +104,9 @@ def extract_subject_slices(
         if do_normalize:
             vol = normalize_volume(vol)
         volumes[mod_name] = vol
+    
+    # Force garbage collection after loading volumes
+    gc.collect()
 
     # Get number of slices along the chosen axis
     ref_vol = list(volumes.values())[0]
@@ -153,7 +166,12 @@ def extract_subject_slices(
             canvas = (canvas * 255).clip(0, 255).astype(np.uint8)
             img = Image.fromarray(canvas, mode="L")
             img.save(qc_path / f"{slice_name}_qc.png")
-
+    
+    # Explicitly delete volumes to free memory immediately
+    del volumes
+    del slices  # Also delete the slices dict
+    gc.collect()
+    
     return slice_count
 
 
@@ -164,6 +182,15 @@ def process_single_subject(row_data, input_path, modality_files, output_dir, con
     """
     sid = row_data["subject_id"]
     split = row_data["split"]
+    
+    # Check if subject already processed (check output directory for existing files)
+    out_split = Path(output_dir) / split
+    if out_split.exists():
+        # Check if any .npy files exist for this subject
+        existing_files = list(out_split.glob(f"{sid}_slice*.npy"))
+        if len(existing_files) > 0:
+            return {"subject_id": sid, "split": split, "n_slices": len(existing_files), 
+                    "status": "SKIP", "message": f"already processed ({len(existing_files)} slices found)"}
     
     subj_dir = input_path / sid
     if not subj_dir.exists():
@@ -207,14 +234,27 @@ def process_all_subjects(
         "PD": "PD.nii.gz",
     }
 
-    # Determine number of workers
+    # Determine number of workers (conservative to reduce memory pressure)
     if n_workers is None:
-        n_workers = max(1, cpu_count() - 1)  # Leave 1 core free
+        # Use half of available cores to reduce memory usage
+        n_workers = max(1, cpu_count() // 2)
+    
+    # Check if we can drop cache (needs root)
+    can_drop_cache = False
+    try:
+        with open('/proc/sys/vm/drop_caches', 'r') as f:
+            can_drop_cache = True
+    except (PermissionError, FileNotFoundError):
+        pass
     
     print(f"\nMode: {mode}")
     print(f"Input: {input_dir}")
     print(f"Output: {output_dir}")
     print(f"Workers: {n_workers} / {cpu_count()} available cores")
+    
+    if not can_drop_cache:
+        print(f"ℹ️  Running without sudo - buff/cache won't auto-clear")
+        print(f"   To auto-clear cache, run: sudo python {sys.argv[0]} {' '.join(sys.argv[1:])}")
 
     input_path = Path(input_dir)
     total_slices = 0
@@ -240,8 +280,10 @@ def process_all_subjects(
     )
     
     # Process subjects in parallel
-    with Pool(processes=n_workers) as pool:
+    # maxtasksperchild=10 forces worker processes to restart every 10 tasks, preventing memory buildup
+    with Pool(processes=n_workers, maxtasksperchild=10) as pool:
         # Use imap for progress bar support
+        subject_counter = 0
         for result in tqdm(
             pool.imap(worker_fn, subject_data),
             total=len(subject_data),
@@ -256,10 +298,78 @@ def process_all_subjects(
                 results.append({"subject_id": sid, "split": result["split"], "n_slices": n_slices})
                 tqdm.write(f"  [OK] {sid}: {n_slices} slices")
             elif status == "SKIP":
-                tqdm.write(f"  [SKIP] {sid}: {result['message']}")
+                # If already processed, still count the slices for the manifest
+                if "already processed" in result['message']:
+                    total_slices += n_slices
+                    results.append({"subject_id": sid, "split": result["split"], "n_slices": n_slices})
+                    tqdm.write(f"  [CACHED] {sid}: {result['message']}")
+                else:
+                    tqdm.write(f"  [SKIP] {sid}: {result['message']}")
             else:  # FAIL
                 tqdm.write(f"  [FAIL] {sid}: {result['message']}")
+            
+            # Periodic cleanup every 10 subjects to prevent memory buildup
+            subject_counter += 1
+            if subject_counter % 20 == 0:
+                # Force garbage collection in main process
+                gc.collect()
+                
+                # Sync to flush file system buffers (Linux only)
+                if hasattr(os, 'sync'):
+                    os.sync()
+                
+                # Try to drop page cache (requires root, will silently fail otherwise)
+                try:
+                    with open('/proc/sys/vm/drop_caches', 'w') as f:
+                        f.write('3\n')
+                except (PermissionError, FileNotFoundError):
+                    pass  # Need sudo to drop cache
+                
+                # Report memory usage (matching 'free -h' output)
+                mem = psutil.virtual_memory()
+                total_gb = mem.total / (1024**3)
+                available_gb = mem.available / (1024**3)
+                # buff/cache = total - available - free
+                buffers_cached_gb = mem.cached / (1024**3) + mem.buffers / (1024**3)
+                actual_used_gb = (mem.total - mem.available - mem.cached - mem.buffers) / (1024**3)
+                
+                tqdm.write(f"  [CLEANUP] After {subject_counter} subjects: "
+                          f"Used={actual_used_gb:.1f}GB, Buff/Cache={buffers_cached_gb:.1f}GB, "
+                          f"Available={available_gb:.1f}GB/{total_gb:.1f}GB | Workers recycled")
 
+    # Final garbage collection and cache cleanup
+    print("\n  [FINAL CLEANUP] Running final garbage collection and cache flush...")
+    gc.collect()
+    if hasattr(os, 'sync'):
+        os.sync()
+    
+    # Try to drop page cache (requires root)
+    cache_dropped = False
+    try:
+        with open('/proc/sys/vm/drop_caches', 'w') as f:
+            f.write('3\n')
+        cache_dropped = True
+    except (PermissionError, FileNotFoundError):
+        pass
+    
+    # Report final memory state (matching 'free -h' format)
+    mem = psutil.virtual_memory()
+    total_gb = mem.total / (1024**3)
+    available_gb = mem.available / (1024**3)
+    buffers_cached_gb = mem.cached / (1024**3) + mem.buffers / (1024**3)
+    actual_used_gb = (mem.total - mem.available - mem.cached - mem.buffers) / (1024**3)
+    
+    print(f"  Final: Used={actual_used_gb:.1f}GB, Buff/Cache={buffers_cached_gb:.1f}GB, "
+          f"Available={available_gb:.1f}GB/{total_gb:.1f}GB")
+    
+    if not cache_dropped and buffers_cached_gb > 2.0:
+        print(f"  ⚠ Buff/cache is high ({buffers_cached_gb:.1f}GB). To clear it, run:")
+        print(f"    sudo sync && sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'")
+    elif cache_dropped:
+        print(f"  ✓ Page cache dropped successfully")
+    else:
+        print(f"  Note: Buff/cache {buffers_cached_gb:.1f}GB will be reclaimed by OS when needed")
+    
     # Save slice manifest
     slice_df = pd.DataFrame(results)
     out_path = Path(output_dir)
@@ -284,7 +394,7 @@ def main():
     parser.add_argument("--config", type=str, default="phase1_preprocessing/configs/config.yaml")
     parser.add_argument("--qc_dir", type=str, default="artifacts/qc")
     parser.add_argument("--workers", type=int, default=None,
-                        help=f"Number of parallel workers (default: {max(1, cpu_count() - 1)} of {cpu_count()} cores)")
+                        help=f"Number of parallel workers (default: {max(1, cpu_count() // 2)} of {cpu_count()} cores for memory efficiency)")
     args = parser.parse_args()
 
     # Load config
