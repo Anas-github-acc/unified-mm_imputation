@@ -1,0 +1,16 @@
+# Phase 1 - Preprocessing (CPU)
+antspyx>=0.4.0
+nibabel>=5.0
+torchio>=0.19
+numpy>=1.24
+pandas>=2.0
+scikit-image>=0.21
+matplotlib>=3.7
+tqdm>=4.65
+Pillow>=10.0
+
+# Phase 2 - Training (GPU)
+torch>=2.0
+torchvision>=0.15
+h5py>=3.9
+tensorboard>=2.14

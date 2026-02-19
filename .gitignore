@@ -1,3 +1,10 @@
+# dataset
+data/processed/*
+data/raw/ixi
+
+# artifacts
+artifacts/qc/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -5,6 +12,9 @@ __pycache__/
 
 # C extensions
 *.so
+
+.venv
+venv
 
 # Distribution / packaging
 .Python

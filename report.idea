@@ -1,0 +1,7 @@
+For the Presentation:
+
+"We implemented N4 Bias Field Correction to remove intensity artifacts. While the original paper utilized ANTsPy, we identified stability issues with ANTsPy on modern Python environments (3.12). Consequently, we optimized the implementation using SimpleITK, which provides the identical N4 algorithm with superior stability and memory management."
+
+For the Report (Methodology Section):
+
+"Data preprocessing was enhanced via N4 Bias Field Correction to mitigate intensity inhomogeneity. We utilized the SimpleITK implementation of the N4 algorithm. This choice was driven by SimpleITK's robust compatibility with Python 3.12, ensuring a stable and reproducible pipeline compared to the legacy ANTsPy wrapper used in prior works."

@@ -1,0 +1,51 @@
+# ============================================================
+# Phase 1 Configuration: IXI Preprocessing
+# ============================================================
+
+# Paths (update these to match your local setup)
+paths:
+  ixi_raw_dir: "../data/raw/ixi"           # Where raw IXI NIfTI files are
+  processed_baseline: "../data/processed/baseline"
+  processed_optimized: "../data/processed/optimized_n4"
+  manifests_dir: "../data/manifests"
+  qc_dir: "../artifacts/qc"
+  logs_dir: "../artifacts/logs"
+
+# IXI download URLs
+download:
+  t1_url: "https://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI-T1.tar"
+  t2_url: "https://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI-T2.tar"
+  pd_url: "https://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI-PD.tar"
+
+# Registration settings
+registration:
+  fixed_modality: "PD"                      # Register T1/T2 to PD space
+  type_of_transform: "Affine"               # Affine (fast, CPU-friendly)
+  verbose: false
+
+# N4 Bias Field Correction
+n4:
+  shrink_factor: 4                          # Downsample factor for speed
+  convergence:
+    iters: [50, 50, 50, 50]
+    tol: 0.0
+
+# Slice extraction
+slicing:
+  axis: 2                                   # Axial slices (dim=2)
+  skip_top: 20                              # Skip top N slices (mostly air)
+  skip_bottom: 20                           # Skip bottom N slices (mostly air)
+  crop_size: [224, 224]                     # Center-crop each slice to this size
+  normalize: true                           # Min-max normalize each volume
+
+# Dataset split (subject-wise)
+split:
+  train_ratio: 0.85
+  val_ratio: 0.075
+  test_ratio: 0.075
+  random_seed: 42
+
+# QC sampling
+qc:
+  samples_per_subject: 3                    # Save this many QC PNGs per subject
+  save_png: true
