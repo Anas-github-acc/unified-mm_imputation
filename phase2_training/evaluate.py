@@ -258,14 +258,8 @@ def main():
     results_dir = Path(args.output_dir) / args.experiment
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load model
+    # Load model – auto-detect depth from checkpoint to avoid architecture mismatch
     print("Loading model...")
-    generator = GeneratorUNet(
-        in_channels=args.in_channels,
-        out_channels=args.in_channels,
-    ).to(device)
-
-    # Load checkpoint
     ckpt_path = Path(args.checkpoint)
     if ckpt_path.is_dir():
         state = load_checkpoint(str(ckpt_path))
@@ -276,6 +270,13 @@ def main():
         print("ERROR: Could not load checkpoint!")
         sys.exit(1)
 
+    depth = 8 if "down7.model.0.weight" in state["generator_state_dict"] else 6
+    print(f"  Detected UNet depth={depth} from checkpoint")
+    generator = GeneratorUNet(
+        in_channels=args.in_channels,
+        out_channels=args.in_channels,
+        depth=depth,
+    ).to(device)
     generator.load_state_dict(state["generator_state_dict"])
     print(f"Loaded checkpoint (epoch {state.get('epoch', '?')})")
 

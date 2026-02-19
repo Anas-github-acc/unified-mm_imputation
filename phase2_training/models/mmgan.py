@@ -81,31 +81,48 @@ class GeneratorUNet(nn.Module):
 
     For IXI: in_channels=3 (T1, T2, PD), out_channels=3
     Input size: (B, 3, 256, 256) -> Output: (B, 3, 256, 256)
+
+    depth=6  →  down1–down6, up1–up5  (matches baseline/optimized checkpoints)
+    depth=8  →  down1–down8, up1–up7  (deeper variant, requires fresh training)
     """
 
-    def __init__(self, in_channels=3, out_channels=3):
+    def __init__(self, in_channels=3, out_channels=3, depth=6):
         super().__init__()
+        assert depth in (6, 8), f"depth must be 6 or 8, got {depth}"
+        self.depth = depth
 
-        # Encoder
+        # ---- Encoder (shared for both depths) ----
         self.down1 = UNetDown(in_channels, 64, normalize=False)
         self.down2 = UNetDown(64, 128)
         self.down3 = UNetDown(128, 256)
         self.down4 = UNetDown(256, 512, dropout=0.2)
         self.down5 = UNetDown(512, 512, dropout=0.2)
-        self.down6 = UNetDown(512, 512, dropout=0.2)
-        self.down7 = UNetDown(512, 512, dropout=0.2)
-        self.down8 = UNetDown(512, 512, normalize=False, dropout=0.2)
+        self.down6 = UNetDown(512, 512, normalize=False, dropout=0.2)  # bottleneck (depth=6)
 
-        # Decoder
-        self.up1 = UNetUp(512, 512, dropout=0.2)
-        self.up2 = UNetUp(1024, 512, dropout=0.2)
-        self.up3 = UNetUp(1024, 512, dropout=0.2)
-        self.up4 = UNetUp(1024, 512, dropout=0.2)
-        self.up5 = UNetUp(1024, 256)
-        self.up6 = UNetUp(512, 128)
-        self.up7 = UNetUp(256, 64)
+        if depth == 8:
+            # Extra encoder levels before bottleneck
+            self.down6 = UNetDown(512, 512, dropout=0.2)               # override: not bottleneck
+            self.down7 = UNetDown(512, 512, dropout=0.2)
+            self.down8 = UNetDown(512, 512, normalize=False, dropout=0.2)  # bottleneck (depth=8)
 
-        # Final layer with ReLU (output in [0, inf), data is [0,1] normalized)
+        # ---- Decoder ----
+        if depth == 6:
+            # up1 input = bottleneck(512), output cat with d5 → up2 sees 512+512=1024
+            self.up1 = UNetUp(512,  512, dropout=0.2)
+            self.up2 = UNetUp(1024, 512, dropout=0.2)
+            self.up3 = UNetUp(1024, 256)
+            self.up4 = UNetUp(512,  128)
+            self.up5 = UNetUp(256,   64)
+        else:  # depth == 8
+            self.up1 = UNetUp(512,  512, dropout=0.2)
+            self.up2 = UNetUp(1024, 512, dropout=0.2)
+            self.up3 = UNetUp(1024, 512, dropout=0.2)
+            self.up4 = UNetUp(1024, 512, dropout=0.2)
+            self.up5 = UNetUp(1024, 256)
+            self.up6 = UNetUp(512,  128)
+            self.up7 = UNetUp(256,   64)
+
+        # Final layer – input is always 128 channels (64 from upsampler + 64 skip)
         self.final = nn.Sequential(
             nn.Upsample(scale_factor=2),
             nn.ZeroPad2d((1, 0, 1, 0)),
@@ -114,26 +131,37 @@ class GeneratorUNet(nn.Module):
         )
 
     def forward(self, x):
-        # Encoder path
+        # ---- Encoder ----
         d1 = self.down1(x)
         d2 = self.down2(d1)
         d3 = self.down3(d2)
         d4 = self.down4(d3)
         d5 = self.down5(d4)
         d6 = self.down6(d5)
-        d7 = self.down7(d6)
-        d8 = self.down8(d7)  # Bottleneck
 
-        # Decoder path with skip connections
-        u1 = self.up1(d8, d7)
-        u2 = self.up2(u1, d6)
-        u3 = self.up3(u2, d5)
-        u4 = self.up4(u3, d4)
-        u5 = self.up5(u4, d3)
-        u6 = self.up6(u5, d2)
-        u7 = self.up7(u6, d1)
+        if self.depth == 8:
+            d7 = self.down7(d6)
+            d8 = self.down8(d7)  # bottleneck
+        else:
+            d8 = d6              # d6 is the bottleneck for depth=6
 
-        return self.final(u7)
+        # ---- Decoder ----
+        if self.depth == 6:
+            u1 = self.up1(d8, d5)
+            u2 = self.up2(u1, d4)
+            u3 = self.up3(u2, d3)
+            u4 = self.up4(u3, d2)
+            u5 = self.up5(u4, d1)
+            return self.final(u5)
+        else:
+            u1 = self.up1(d8, d7)
+            u2 = self.up2(u1, d6)
+            u3 = self.up3(u2, d5)
+            u4 = self.up4(u3, d4)
+            u5 = self.up5(u4, d3)
+            u6 = self.up6(u5, d2)
+            u7 = self.up7(u6, d1)
+            return self.final(u7)
 
 
 # ============================================================

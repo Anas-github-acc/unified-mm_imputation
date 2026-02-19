@@ -74,6 +74,8 @@ def parse_args():
     # Model
     parser.add_argument("--in_channels", type=int, default=3,
                         help="Number of input modalities (T1, T2, PD)")
+    parser.add_argument("--depth", type=int, default=6, choices=[6, 8],
+                        help="UNet depth: 6 (default, matches paper) or 8 (deeper)")
     parser.add_argument("--img_size", type=int, default=256,
                         help="Image size (square)")
 
@@ -309,6 +311,7 @@ def main():
     generator = GeneratorUNet(
         in_channels=args.in_channels,
         out_channels=args.in_channels,
+        depth=args.depth,
     ).to(device)
 
     discriminator = Discriminator(

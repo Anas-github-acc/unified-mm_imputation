@@ -3,6 +3,18 @@ data/processed/*
 data/raw/ixi
 
 # artifacts
+artifacts/baseline/checkpoints/*
+artifacts/baseline/logs/*
+artifacts/baseline/*.zip
+
+artifacts/optimized/checkpoints/*
+artifacts/optimized/logs/*
+artifacts/optimized/*.zip
+
+# comparer
+phase2_training/compare/*
+
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
