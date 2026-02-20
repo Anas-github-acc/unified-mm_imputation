@@ -1,29 +1,26 @@
 # Missing MRI Modality Imputation using MM-GAN
 
 <p align="center">
-  <img src="artifacts/qc/baseline/IXI002_slice0064_qc.png" width="30%" alt="IXI002 Baseline MRI Slices (T1 | T2 | PD)"/>
-  &nbsp;
-  <img src="artifacts/qc/n4_correction/IXI002_n4_qc.png" width="30%" alt="IXI002 N4 Bias Field Correction (Before | After)"/>
+  <img src="artifacts/qc/baseline/IXI002_slice0064_qc.png" width="70%" alt="IXI002 Baseline MRI Slices (T1 | T2 | PD)"/>
 </p>
 <p align="center">
-  <em>Left: Registered IXI brain MRI slices (T1 · T2 · PD). &nbsp; Right: N4 bias field correction — before vs. after.</em>
+  <em>Registered IXI brain MRI slices (T1 · T2 · PD)</em>
 </p>
 
 ---
 
-[Anas](https://github.com/Anas-github-acc)
+[Anas](https://github.com/Anas-github-acc) • [Nitin]() • [Abhishek]()
 
 ---
 
-## Why This Project?
+## why we need this work?
 
 In clinical practice, acquiring all MRI modalities for a patient is not always possible. Scanner constraints, time pressure, patient tolerance, cost, or protocol differences mean that radiologists often have to work with incomplete sets of MRI sequences. A patient may have T1 but lack T2 and PD, or vice versa.
 
-Missing modalities are a direct bottleneck for pipelines that depend on multi-modal inputs — segmentation networks, diagnosis systems, and registration tools all degrade when expected channels are absent.
+Missing modalities are a direct bottleneck for pipelines that depend on multi-modal inputs - segmentation networks, diagnosis systems, and registration tools all degrade when expected channels are absent.
 
 This project explores whether a generative model can **learn to synthesize plausible missing modalities** from whatever subset is available, and whether improving input signal quality (via N4 bias field correction) meaningfully changes what the model learns.
 
----
 
 ## Introduction
 
@@ -38,7 +35,6 @@ The implementation is applied to the [IXI brain MRI dataset](https://brain-devel
   <em>MM-GAN synthesizes each missing modality conditioned on all available ones.</em>
 </p>
 
----
 
 ## Getting Started
 
@@ -107,8 +103,6 @@ python phase2_training/train.py \
 python phase2_training/evaluate.py --experiment optimized
 ```
 
----
-
 ## Visualization
 
 Quality control figures are generated automatically during Phase 1 and saved into `artifacts/qc/`.
@@ -116,37 +110,25 @@ Quality control figures are generated automatically during Phase 1 and saved int
 **Registration overlays** — T1, T2, and PD shown side-by-side after affine alignment into PD space:
 
 <p align="center">
-  <img src="artifacts/qc/baseline/IXI002_slice0020_qc.png" width="30%" alt="IXI002 QC slice 20"/>
-  &nbsp;
-  <img src="artifacts/qc/baseline/IXI002_slice0064_qc.png" width="30%" alt="IXI002 QC slice 64"/>
-  &nbsp;
-  <img src="artifacts/qc/baseline/IXI002_slice0109_qc.png" width="30%" alt="IXI002 QC slice 109"/>
+  <img src="artifacts/qc/baseline/IXI002_slice0020_qc.png" width="40%" alt="IXI002 QC slice 20"/>
+  <br>
+  <img src="artifacts/qc/baseline/IXI002_slice0064_qc.png" width="40%" alt="IXI002 QC slice 64"/>
+  <br>
+  <img src="artifacts/qc/baseline/IXI002_slice0109_qc.png" width="40%" alt="IXI002 QC slice 109"/>
 </p>
 <p align="center">
   <em>Subject IXI002 — inferior, mid, and superior axial slices after registration. Columns: T1 · T2 · PD.</em>
 </p>
 
-**N4 Bias Field Correction** — each panel shows the uncorrected (left) vs. corrected (right) volume for the same subject:
-
-<p align="center">
-  <img src="artifacts/qc/n4_correction/IXI002_n4_qc.png" width="45%" alt="N4 correction IXI002"/>
-  &nbsp;
-  <img src="artifacts/qc/n4_correction/IXI012_n4_qc.png" width="45%" alt="N4 correction IXI012"/>
-</p>
-<p align="center">
-  <em>N4 bias field correction. Intensity gradients caused by scanner field inhomogeneity are visibly reduced after correction.</em>
-</p>
-
----
 
 ## Results
 
 ### Training & Validation Curves
 
 <p align="center">
-  <img src="phase2_training/presentation/training_curves.png" width="48%" alt="Training loss curves"/>
-  &nbsp;
-  <img src="phase2_training/presentation/validation_curves.png" width="48%" alt="Validation PSNR/SSIM curves"/>
+  <img src="phase2_training/presentation/training_curves.png" width="80%" alt="Training loss curves"/>
+  <br>
+  <img src="phase2_training/presentation/validation_curves.png" width="80%" alt="Validation PSNR/SSIM curves"/>
 </p>
 <p align="center">
   <em>Left: Generator and discriminator training losses over epochs. Right: Validation PSNR and SSIM throughout training.</em>
@@ -173,9 +155,9 @@ Computed on the held-out test set at epoch 34. Results compared against the pape
 ### PSNR & SSIM per Scenario
 
 <p align="center">
-  <img src="phase2_training/presentation/psnr_comparison.png" width="48%" alt="PSNR per scenario"/>
-  &nbsp;
-  <img src="phase2_training/presentation/ssim_comparison.png" width="48%" alt="SSIM per scenario"/>
+  <img src="phase2_training/presentation/psnr_comparison.png" width="70%" alt="PSNR per scenario"/>
+  <br>
+  <img src="phase2_training/presentation/ssim_comparison.png" width="70%" alt="SSIM per scenario"/>
 </p>
 <p align="center">
   <em>Per-scenario PSNR (left) and SSIM (right) on the test set. Scenarios with two available modalities consistently outperform single-modality inputs.</em>
