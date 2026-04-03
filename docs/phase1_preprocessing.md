@@ -138,6 +138,29 @@ Run all steps in sequence via the master runner:
 python phase1_preprocessing/run_phase1.py
 ```
 
+### Recommended: N4 pilot on 2-3 subjects first
+
+Before running N4 on the full dataset, run a small pilot and inspect masks and corrected images.
+
+```bash
+python phase1_preprocessing/scripts/n4_correction_sitk.py \
+  --input_dir data/processed/registered \
+  --output_dir data/processed/n4_corrected \
+  --config phase1_preprocessing/configs/config.yaml \
+  --start_idx 0 \
+  --max_subjects 3 \
+  --save_debug_qc \
+  --debug_subjects 3 \
+  --debug_dir artifacts/qc/n4_debug
+```
+
+This saves debug artifacts per subject/modality:
+
+- `artifacts/qc/n4_debug/<SUBJECT>/<MODALITY>_mask.nii.gz`
+- `artifacts/qc/n4_debug/<SUBJECT>/<MODALITY>_before_mask_after.png`
+
+Inspect these first. If masks look wrong (missing tissue or large background leakage), tune N4 settings in `configs/config.yaml` (especially `n4.shrink_factor` and `n4.convergence.iters`) before scaling to all subjects.
+
 ### Individual steps
 
 Each step can also be executed independently. The master runner supports skip flags to re-run specific stages without repeating earlier ones.
@@ -153,7 +176,7 @@ python phase1_preprocessing/scripts/build_manifest.py
 python phase1_preprocessing/scripts/register.py
 
 # Step 4: N4 bias field correction (optimized branch only)
-python phase1_preprocessing/scripts/n4_correction.py
+python phase1_preprocessing/scripts/n4_correction_sitk.py
 
 # Step 5: Slice extraction (both branches)
 python phase1_preprocessing/scripts/extract_slices.py

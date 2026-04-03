@@ -58,6 +58,10 @@ def main():
                         help="Skip slice extraction")
     parser.add_argument("--skip_qc", action="store_true",
                         help="Skip QC visualization")
+    parser.add_argument("--n4_backend", type=str, default="sitk", choices=["ants", "sitk"],
+                        help="N4 implementation backend: 'sitk' (SimpleITK) or 'ants' (ANTsPy)")
+    parser.add_argument("--slice_mode", type=str, default="both", choices=["baseline", "optimized", "both"],
+                        help="Slice extraction branch to run")
     parser.add_argument("--max_subjects", type=int, default=-1,
                         help="Process at most N subjects (-1=all)")
     args = parser.parse_args()
@@ -69,6 +73,8 @@ def main():
     print("=" * 60)
     print(f"IXI directory:  {args.ixi_dir}")
     print(f"Config:         {args.config}")
+    print(f"N4 backend:     {args.n4_backend}")
+    print(f"Slice mode:     {args.slice_mode}")
     print(f"Max subjects:   {'all' if args.max_subjects == -1 else args.max_subjects}")
 
     total_start = time.time()
@@ -96,18 +102,24 @@ def main():
 
     # Step 3: N4 Bias Field Correction
     if not args.skip_n4:
+        n4_script = "n4_correction_sitk.py" if args.n4_backend == "sitk" else "n4_correction.py"
+        n4_step_name = (
+            "N4 Bias Field Correction (SimpleITK)"
+            if args.n4_backend == "sitk"
+            else "N4 Bias Field Correction (ANTsPy)"
+        )
         timings["n4"] = run_step(
-            str(scripts_dir / "n4_correction.py"),
+            str(scripts_dir / n4_script),
             ["--config", args.config] + subj_args,
-            "N4 Bias Field Correction",
+            n4_step_name,
         )
 
     # Step 4: Slice Extraction
     if not args.skip_slicing:
         timings["slicing"] = run_step(
             str(scripts_dir / "extract_slices.py"),
-            ["--mode", "both", "--config", args.config],
-            "Slice Extraction (Baseline + Optimized)",
+            ["--mode", args.slice_mode, "--config", args.config],
+            f"Slice Extraction ({args.slice_mode})",
         )
 
     # Step 5: QC Visualization
