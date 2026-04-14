@@ -11,7 +11,7 @@
 Original Paper avaiable at [Unified Multi-Modal Image Synthesis for Missing Modality Imputation](https://ieeexplore.ieee.org/document/10589432) 
 
 ---
-[![Author](https://img.shields.io/badge/Author-Anas%20Ahamad-blue)](https://github.com/Anas-github-acc) • [![Author](https://img.shields.io/badge/Author-Nitin-brightgreen)]() • [![Author](https://img.shields.io/badge/Author-Abhishek-orange)]()
+[![Author](https://img.shields.io/badge/Author-Mohd%20Anas-blue)](https://github.com/Anas-github-acc) • [![Author](https://img.shields.io/badge/Author-Nitin-brightgreen)]() • [![Author](https://img.shields.io/badge/Author-Abhishek-orange)]()
 
 ---
 
