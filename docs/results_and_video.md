@@ -49,7 +49,36 @@ Each experiment produces a JSON file with the following structure:
 
 ---
 
-## 2. Results Table Template
+## 2. Optimization Implemented (What Was Improved)
+
+The main optimization implemented in this project is **N4 bias field correction** in the preprocessing pipeline.
+
+- Baseline branch: Affine registration + slice extraction (no N4).
+- Optimized branch: Affine registration + **N4 correction** + slice extraction.
+- Training architecture, loss functions, curriculum schedule, and hyperparameters were kept the same to ensure a fair comparison.
+
+### Why this optimization?
+
+MRI volumes often contain low-frequency intensity inhomogeneity caused by scanner coil sensitivity (bias field). N4 correction removes this artifact and makes tissue intensities more consistent across slices and subjects. The goal is to help MM-GAN learn modality relationships from cleaner signal rather than scanner-induced intensity drift.
+
+### Measured effect (baseline vs optimized)
+
+From `phase2_training/comparison_result/combined_results.json`:
+
+- Overall PSNR improvement: **+0.4703 dB** (29.3106 -> 29.7810)
+- Overall SSIM improvement: **+0.00555** (0.87995 -> 0.88550)
+
+Largest scenario gains:
+
+- `110` (missing PD): +0.7460 dB PSNR, +0.00777 SSIM
+- `101` (missing T2): +0.7141 dB PSNR, +0.01124 SSIM
+- `011` (missing T1): +0.6840 dB PSNR, +0.01035 SSIM
+
+Observation: N4 provides clear benefits in single-missing scenarios and modest overall gains, while a few multi-missing scenarios show small drops. This still supports the conclusion that N4 is a useful preprocessing optimization for this setup.
+
+---
+
+## 3. Results Table Template
 
 | Scenario | Missing | Available | Baseline PSNR | Optimized PSNR | Delta | Baseline SSIM | Optimized SSIM | Delta |
 |----------|---------|-----------|---------------|----------------|-------|---------------|----------------|-------|
@@ -65,7 +94,7 @@ Fill in after running both experiments.
 
 ---
 
-## 3. Key Figures to Generate
+## 4. Key Figures to Generate
 
 1. **QC Registration Overlay** (`artifacts/qc/`): Shows registered T1/T2 overlaid on PD reference. Demonstrates alignment quality.
 2. **N4 Before/After** (`artifacts/qc/`): Side-by-side showing intensity inhomogeneity correction.
@@ -76,7 +105,7 @@ Fill in after running both experiments.
 
 ---
 
-## 4. How to Generate Figures
+## 5. How to Generate Figures
 
 After both experiments are complete, run the comparison script:
 
@@ -96,7 +125,7 @@ tensorboard --logdir ./logs
 
 ---
 
-## 5. Video Presentation Narration Guide
+## 6. Video Presentation Narration Guide
 
 Suggested video structure (5-8 minutes):
 
@@ -159,7 +188,7 @@ Suggested video structure (5-8 minutes):
 
 ---
 
-## 6. Interpreting Results
+## 7. Interpreting Results
 
 ### What Good Results Look Like
 
@@ -181,16 +210,3 @@ Suggested video structure (5-8 minutes):
 - Blurry outputs: increase GAN loss weight (decrease `lambda_pixel`).
 
 ---
-
-## 7. File Checklist for Final Submission
-
-- [ ] `results/baseline/metrics.json`
-- [ ] `results/optimized/metrics.json`
-- [ ] `results/comparison/comparison_chart.png`
-- [ ] `results/comparison/combined_results.json`
-- [ ] `results/baseline/visuals/` (comparison PNGs)
-- [ ] `results/optimized/visuals/` (comparison PNGs)
-- [ ] `artifacts/qc/` (registration and N4 QC images)
-- [ ] TensorBoard screenshots (loss curves, metric curves)
-- [ ] Completed results table (filled in from template above)
-- [ ] Video recording

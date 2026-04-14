@@ -123,6 +123,25 @@ Quality control figures are generated automatically during Phase 1 and saved int
 
 ## Results
 
+### Optimization Impact (Baseline vs Optimized)
+
+To evaluate preprocessing optimization, we trained the same MM-GAN setup on two branches:
+
+- **Baseline:** registration + slicing (no N4)
+- **Optimized:** registration + **N4 bias field correction** + slicing
+
+Overall improvement from optimized preprocessing:
+
+- **PSNR:** 29.31 -> 29.78 (**+0.47 dB**)
+- **SSIM:** 0.8799 -> 0.8855 (**+0.0056**)
+
+<p align="center">
+  <img src="phase2_training/comparison_result/comparison_chart.png" width="85%" alt="Baseline vs optimized PSNR and SSIM per scenario"/>
+</p>
+<p align="center">
+  <em>Scenario-wise comparison between baseline and N4-optimized preprocessing.</em>
+</p>
+
 ### Training & Validation Curves
 
 <p align="center">
