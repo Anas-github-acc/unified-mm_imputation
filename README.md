@@ -8,8 +8,10 @@
 </p>
 
 ---
+Original Paper avaiable at [Unified Multi-Modal Image Synthesis for Missing Modality Imputation](https://ieeexplore.ieee.org/document/10589432) 
 
-[Anas](https://github.com/Anas-github-acc) • [Nitin]() • [Abhishek]()
+---
+[![Author](https://img.shields.io/badge/Author-Anas%20Ahamad-blue)](https://github.com/Anas-github-acc) • [![Author](https://img.shields.io/badge/Author-Nitin-brightgreen)]() • [![Author](https://img.shields.io/badge/Author-Abhishek-orange)]()
 
 ---
 
@@ -19,12 +21,12 @@ In clinical practice, acquiring all MRI modalities for a patient is not always p
 
 Missing modalities are a direct bottleneck for pipelines that depend on multi-modal inputs - segmentation networks, diagnosis systems, and registration tools all degrade when expected channels are absent.
 
-This project explores whether a generative model can **learn to synthesize plausible missing modalities** from whatever subset is available, and whether improving input signal quality (via N4 bias field correction) meaningfully changes what the model learns.
+This work explores whether a generative model can **learn to synthesize plausible missing modalities** from whatever subset is available, and whether improving input signal quality using **N4 bias field correction** meaningfully changes what the model learns.
 
 
 ## Introduction
 
-This project implements and adapts **MM-GAN**, a unified multi-modal GAN for synthesizing missing MRI modalities, originally proposed by Sharma & Hamarneh ([IEEE TMI, 2020](https://ieeexplore.ieee.org/document/8859286)). The core idea is a single model capable of generating *any* missing modality from *any* available subset, without retraining for each input-output combination.
+This project implements and adapts **MM-GAN**, a unified multi-modal GAN for synthesizing missing MRI modalities, originally proposed by Sharma & Hamarneh ([IEEE TMI, 2020](https://ieeexplore.ieee.org/document/10589432)). The core idea is a single model capable of generating *any* missing modality from *any* available subset, without retraining for each input-output combination.
 
 The implementation is applied to the [IXI brain MRI dataset](https://brain-development.org/ixi-dataset/) (T1, T2, PD) across all 6 possible missing-modality scenarios. The preprocessing pipeline incorporates N4 bias field correction after registration to reduce scanner-induced intensity inhomogeneity before slice extraction. Training uses curriculum learning — progressing from easy (one missing) to hard (two missing) scenarios — and runs on Kaggle GPU sessions with checkpoint-based resumption.
 
@@ -200,7 +202,7 @@ Each row shows: real image · synthesized image · absolute error map.
 
 ## Links & References
 
-Original Paper — Sharma et al., IEEE TMI 2020 - [10.1109/TMI.2019.2945346](https://ieeexplore.ieee.org/document/8859286)
+Original Paper — Sharma et al., IEEE TMI 2020 - [IEEE Xplore Link](https://ieeexplore.ieee.org/document/10589432)
 <br>N4ITK — Tustison et al., IEEE TMI 2010 - [10.1109/TMI.2010.2046908](https://ieeexplore.ieee.org/document/5445030)
 <br>IXI Dataset - [brain-development.org/ixi-dataset](https://brain-development.org/ixi-dataset/)
 <br>MM-GAN original code - [github.com/trane293/mm-gan](https://github.com/trane293/mm-gan)
