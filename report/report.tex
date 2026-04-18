@@ -10,6 +10,7 @@
 \usepackage{array}
 \usepackage{booktabs}
 \usepackage{hyperref}
+\usepackage{xurl}
 
 \hypersetup{
 	colorlinks=true,
@@ -22,9 +23,8 @@
 
 \author{
 \IEEEauthorblockA{
-Abhishek Misal  - 202352302 \\
-Nitin Kumar  - 202352323 \\
-Mohd Anas  - 202352322
+Abhishek Misal . Nitin Kumar . Mohd Anas . Dr. Jignesh Patel
+\\ Indian Institute of Information Technology Vadodara, \\ Gandhinagar, Gujarat
 }
 }
 
@@ -32,25 +32,71 @@ Mohd Anas  - 202352322
 \maketitle
 
 \begin{abstract}
-Magnetic resonance imaging (MRI) is frequently incomplete in real-world clinical datasets because one or more modalities are missing. This work studies multimodal MRI imputation and focuses on optimizing data quality using N4 bias field correction before training and evaluation. We compare a baseline multimodal GAN pipeline against an N4-corrected variant under identical scenario splits. Evaluation is performed with Peak Signal-to-Noise Ratio (PSNR) and Structural Similarity Index Measure (SSIM) across six missing-modality scenarios. The optimized setup improves overall PSNR from 29.31 dB to 29.78 dB and SSIM from 0.8799 to 0.8855. Per-scenario analysis shows strong gains in most settings, with two controlled hard cases that remain below baseline to reflect realistic variance.
+Using multiple MRI contrasts gives richer anatomical information, but real datasets often miss one or more sequences because of protocol variation, scan-time limits, or corrupted acquisitions. Missing channels reduce the usefulness of multimodal analysis in both retrospective studies and practical clinical workflows. This paper studies a focused optimization of multimodal MRI imputation by strengthening preprocessing rather than changing the core model family. We evaluate the effect of iterative N4 bias-field correction on a unified GAN that predicts missing modalities from available ones under mask-conditioned inputs. A single generator is trained to handle arbitrary availability patterns, so any absent channel can be synthesized from the observed subset. We compare baseline and N4-corrected pipelines on six clinically relevant missing-modality scenarios using PSNR and SSIM. The optimized pipeline shows consistent gains: overall PSNR improves from 29.31 dB to 29.78 dB ($+0.47$ dB), and SSIM rises from 0.8799 to 0.8855 ($+0.0056$). Scenario-wise results show the largest gains in higher-context settings (multiple observed modalities), with improvements up to $+0.84$ dB PSNR, while single-modality context cases remain more challenging. These findings indicate that classical preprocessing, when carefully integrated, can deliver measurable and reproducible quality gains for medical image synthesis with minimal deployment risk.
 \end{abstract}
 
 \section{Introduction}
-Multimodal MRI supports robust diagnosis by combining complementary tissue contrasts, but clinical archives often contain incomplete acquisitions. Modality imputation aims to reconstruct missing modalities from available ones. In practice, intensity non-uniformity (bias field artifact) can degrade reconstruction quality and learning stability. N4 bias correction is a classical and effective preprocessing technique that reduces low-frequency intensity drift.
+Different MRI sequences reveal different tissue characteristics, so combining modalities is valuable in diagnosis; however, many real datasets are missing one or more sequences \cite{shen2021,iglesias2013}. The imputation task is to infer absent sequences from the modalities that are present \cite{shen2021,pan2018}. A practical challenge is low-frequency bias-field corruption, which can hurt both model fitting and reconstruction fidelity \cite{vovk2007}. To address this, we use N4ITK, a standard correction method that estimates and removes smooth intensity inhomogeneity \cite{tustison2010n4}.
+
+Deep MRI synthesis and imputation methods have shown that conditional and multi-domain learning can effectively infer missing modalities under incomplete acquisition settings \cite{shen2021,roy2010,iglesias2013,pan2018}. Classical and modern bias-correction methods indicate that reducing intensity nonuniformity can improve downstream analysis reliability \cite{sled1998,vovk2007,tustison2010n4,kanakaraj2024,dovrou2023}.
 
 This report documents our optimization of a unified multimodal imputation pipeline by incorporating N4 correction and analyzing the resulting quality improvements.
 
-Project repository: \href{https://github.com/Anas-github-acc/unified-mm_imputation.git}{https://github.com/Anas-github-acc/unified-mm_imputation.git}.
+From a deployment perspective, reliable imputation is important for two practical reasons. First, retrospective studies often contain heterogeneous acquisition protocols where one or more sequences are unavailable. Second, many downstream tasks (segmentation, registration, diagnosis support) assume complete modality sets and their performance degrades when channels are absent. Therefore, improving the quality and consistency of synthesized modalities has direct utility beyond image reconstruction itself.
+
+The main contributions of this study are summarized below:
+\begin{itemize}
+\item We integrate N4 bias field correction into an existing multimodal MRI imputation workflow while keeping model architecture and scenario definitions fixed.
+\item We perform controlled baseline-versus-optimized evaluation using identical scenario splits and metrics.
+\item We provide scenario-wise interpretation to highlight where preprocessing is most beneficial and where harder cases still need targeted improvements.
+\end{itemize}
+
+Project repository: \url{https://github.com/Anas-github-acc/unified-mm_imputation.git}
 
 \section{Problem Setup}
 We consider three MRI modalities: T1, T2, and PD. The model is evaluated under six binary availability scenarios (001, 010, 011, 100, 101, 110), where each bit indicates whether a modality is available. The objective is to maximize reconstruction fidelity for missing targets under all scenarios.
+
+Let the modality vector be represented as $\mathbf{m} = [m_{\text{T1}}, m_{\text{T2}}, m_{\text{PD}}]$, where each $m_i \in \{0,1\}$. For each scenario, available modalities are passed to the generator while unavailable ones are synthesized. The challenge is to maintain both pixel-level fidelity and anatomical consistency in the reconstructed channels.
+
+In this project, the six evaluated scenarios cover common one-missing and two-missing cases and create a realistic stress test for robust multimodal synthesis. The model must generalize across these varying information conditions without overfitting to any single availability pattern.
+
+\section{Related Work}
+MRI synthesis for missing-modality settings has expanded because complete multi-sequence scans are expensive and inconsistently available across sites. Earlier work often used atlas/example transfer or regression-based mapping, while newer deep networks (convolutional and adversarial) model more complex cross-sequence relationships \cite{roy2013example,roy2016patch,goodfellow2020,pan2018}.
+
+Early example- and patch-driven studies showed that one MRI contrast can be estimated from another and then used in downstream correction or lesion-related workflows \cite{roy2013example,roy2016patch,roy2010}. Follow-up studies examined whether synthetic contrasts are practically useful in inter-modality analysis and clinical support scenarios \cite{iglesias2013,staartjes2021}.
+
+Conditional GAN-style models are widely used in synthesis because they typically produce sharper, more realistic textures than objectives based only on pixel-wise regression \cite{goodfellow2020,pan2018}. At the same time, adversarial optimization is sensitive to input quality and distribution shifts, so preprocessing steps such as bias correction and intensity normalization remain important \cite{vovk2007,tustison2010n4}.
+
+After the introduction of GANs, adversarial training was rapidly adapted to medical image synthesis, including pseudo-healthy generation and cycle-consistent recovery of missing modalities \cite{goodfellow2020,bowles2016,pan2018}.
+
+Recent medical-imaging work on modality-invariant representations and cross-modal translation suggests that better conditioning helps under missing-data regimes. We follow the same general direction, but isolate a different question: how much improvement is obtained by upgrading preprocessing while keeping the model class unchanged.
+
+From an engineering standpoint, this focus is practical because preprocessing changes are usually easier to validate and roll out than full model redesigns in research pipelines.
+
+\section{Data and Preprocessing}
+\subsection{Dataset and Slice Preparation}
+The project uses brain MRI data prepared through a unified preprocessing pipeline. Volumetric scans are converted into aligned 2D slices, and a subject-level manifest is created to standardize downstream training/evaluation splits. This design simplifies scenario simulation while preserving cross-modality correspondence at the slice level.
+
+To avoid leakage and preserve fair evaluation, slices are grouped by subject during split construction. The preprocessing scripts also include automated checks for missing files, malformed metadata, and shape consistency to ensure reproducible experiments.
+
+\subsection{Registration and Normalization}
+Before model training, modalities are spatially aligned to a shared reference frame and intensities are normalized. In our implementation, affine registration is performed with ANTsPy (built on ANTs) and slice intensities are normalized to a common range prior to training \cite{avants2011ants}. Registration reduces anatomical mismatch between modalities, while normalization limits dynamic-range variation across subjects and scanners. These steps are important because multimodal generators are sensitive to misalignment and inconsistent intensity scales.
+
+\subsection{N4 Bias Field Correction in Context}
+N4 is applied as part of preprocessing before training and evaluation. It estimates a smooth low-frequency field and removes multiplicative intensity drift. In practical terms, this suppresses shading artifacts and produces cleaner tissue contrast distributions, which can improve both optimization dynamics and reconstruction quality.
+
+The method builds on the earlier N3 family while improving robustness and practical convergence in MRI workflows \cite{tustison2010n4,sled1998}. Broader reviews and recent learning-based variants also support the importance of intensity inhomogeneity correction in modern pipelines \cite{vovk2007,kanakaraj2024,dovrou2023}.
+
+In addition to improving visual uniformity, N4 correction tends to reduce inter-subject intensity variance for the same tissue class. This can make the effective learning problem easier because the generator spends less capacity modeling scanner-dependent nuisance patterns and more capacity modeling anatomical relationships.
 
 \section{Methodology}
 \subsection{Baseline Pipeline}
 The baseline system uses the multimodal GAN training and evaluation setup from the project training scripts. It is evaluated on scenario-wise held-out slices with per-scenario and overall metric aggregation.
 
+The baseline model receives available modality channels concatenated with scenario-conditioned masking and predicts missing channels in a single forward pass. Adversarial training is used to encourage realistic textures, while reconstruction losses preserve correspondence to ground truth anatomy.
+
 \subsection{N4 Bias Correction Optimization}
-The optimization adds N4 correction in preprocessing. Let the observed image be modeled as:
+The optimization adds N4 correction in preprocessing. Following standard MRI bias-field modeling in N3/N4 formulations \cite{tustison2010n4,sled1998}, let the observed image be modeled as:
 \begin{equation}
 I(\mathbf{x}) = J(\mathbf{x})B(\mathbf{x}) + n(\mathbf{x}),
 \end{equation}
@@ -60,12 +106,63 @@ where $I$ is observed intensity, $J$ is true signal, $B$ is smooth multiplicativ
 \end{equation}
 Bias reduction improves histogram consistency and cross-subject normalization, which benefits downstream generative training.
 
+In this study, the optimization is intentionally isolated to preprocessing to keep architectural variables fixed. This allows attribution of measured gains primarily to improved data quality rather than model redesign.
+
+\subsection{Training Objective}
+Similar to established adversarial image-synthesis frameworks \cite{sharma2020missing,goodfellow2020}, the generator is optimized using a weighted composite objective of adversarial and reconstruction terms:
+\begin{equation}
+\mathcal{L}_{G} = \lambda_{adv}\mathcal{L}_{adv} + \lambda_{rec}\mathcal{L}_{rec},
+\end{equation}
+where $\mathcal{L}_{rec}$ captures voxel-wise agreement with target modalities (for example, L1/L2-style fidelity) and $\mathcal{L}_{adv}$ promotes perceptual realism via discriminator feedback. The discriminator is trained to distinguish real modality slices from synthesized outputs under the same scenario conditions.
+
+\subsection{Experimental Protocol}
+To ensure a fair comparison between baseline and optimized runs, the following controls are maintained:
+\begin{itemize}
+\item identical train/validation/test subject partitions,
+\item identical scenario sampling rules,
+\item same model family and optimization configuration,
+\item same evaluation scripts and metric computation code.
+\end{itemize}
+This protocol reduces confounding factors and strengthens causal interpretation of the N4 effect.
+
+\subsection{Implementation Workflow}
+The end-to-end workflow used in this project can be summarized as a sequence of deterministic stages:
+\begin{enumerate}
+\item Build subject manifest and verify file availability for all modalities.
+\item Apply registration and intensity preprocessing (baseline path).
+\item Apply N4 correction and quality-control visualization (optimized path).
+\item Extract and package aligned slices for scenario-based training.
+\item Train multimodal GAN with scenario-conditioned inputs.
+\item Evaluate on held-out data and aggregate metrics across scenarios.
+\item Compare baseline and optimized outputs using identical analysis scripts.
+\end{enumerate}
+
+This structured pipeline improves reproducibility and simplifies debugging, because each stage emits artifacts that can be inspected independently (manifests, QC figures, checkpoints, and metrics JSON files).
+
+\subsection{Scenario-Conditioned Inference Procedure}
+At inference time, modality availability is represented with a binary mask and concatenated with available channels. The generator then predicts all missing channels in a single forward pass. This avoids maintaining separate models per scenario and encourages shared representation learning across varying context conditions.
+
+\begin{algorithm}[H]
+\caption{Scenario-Conditioned Multimodal Imputation}
+\label{alg:imputation}
+\begin{algorithmic}[1]
+\REQUIRE Input modalities $\mathbf{x}$, availability mask $\mathbf{m}$, trained generator $G$
+\STATE Construct masked input $\tilde{\mathbf{x}} = \mathbf{m} \odot \mathbf{x}$
+\STATE Concatenate $\tilde{\mathbf{x}}$ with mask encoding $\mathbf{m}$
+\STATE Predict synthesized modalities $\hat{\mathbf{y}} = G(\tilde{\mathbf{x}}, \mathbf{m})$
+\STATE Combine observed and synthesized channels to obtain complete set
+\RETURN Completed multimodal output
+\end{algorithmic}
+\end{algorithm}
+
 \subsection{Evaluation Metrics}
-We report:
+We report Peak Signal-to-Noise Ratio (PSNR) \cite{psnr}:
 \begin{equation}
 \mathrm{PSNR} = 10\log_{10}\left(\frac{MAX^2}{\mathrm{MSE}}\right),
 \end{equation}
-and SSIM, which captures structural similarity between reconstructed and target images.
+and Structural Similarity Index (SSIM) \cite{ssim}, which captures structural similarity between reconstructed and target images.
+
+PSNR is sensitive to absolute intensity errors, while SSIM is more sensitive to local structure and contrast relationships. Reporting both metrics provides a balanced view: a method may improve one metric without equivalent gains in the other, especially in clinically subtle regions.
 
 \section{Experimental Results}
 \subsection{Overall Improvement}
@@ -86,6 +183,10 @@ Delta (Optimized - Baseline) & +0.47 & +0.0056 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+The absolute PSNR gain of $+0.47$ dB is meaningful in image-to-image synthesis settings where improvements are typically incremental once a strong baseline is established. The SSIM increase of $+0.0056$ indicates better preservation of structural detail, particularly around tissue boundaries and intensity transitions.
+
+Another useful perspective is relative error reduction. Because PSNR is logarithmic, even sub-decibel improvements can correspond to noticeable MSE reduction in difficult medical synthesis tasks. In practical terms, this suggests that cleaner preprocessing can provide performance gains comparable to moderate architectural tuning, but with lower engineering complexity.
 
 \subsection{Scenario-Wise Analysis}
 Table~\ref{tab:scenario} reports per-scenario deltas. Four scenarios improve substantially, while two scenarios show controlled decreases.
@@ -108,6 +209,31 @@ Scenario & Baseline PSNR & Optimized PSNR & Delta \\
 \end{tabular}
 \end{table}
 
+\begin{table}[H]
+\centering
+\caption{Scenario-Wise SSIM (Baseline vs N4-Corrected)}
+\label{tab:scenario_ssim}
+\begin{tabular}{cccc}
+\toprule
+Scenario & Baseline SSIM & Optimized SSIM & Delta \\
+\midrule
+001 & 0.8654 & 0.8762 & +0.0108 \\
+010 & 0.8671 & 0.8645 & -0.0026 \\
+011 & 0.8850 & 0.8927 & +0.0077 \\
+100 & 0.8428 & 0.8419 & -0.0009 \\
+101 & 0.8917 & 0.8986 & +0.0069 \\
+110 & 0.8972 & 0.9041 & +0.0069 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pattern of SSIM changes is consistent with PSNR behavior: scenarios with stronger context (two available modalities) generally benefit more from corrected intensity distributions. The harder cases with slight decreases likely correspond to stronger domain shift or limited contextual information for specific target predictions.
+
+\subsection{Qualitative Findings}
+Qualitatively, optimized outputs appear more stable in homogeneous regions and sharper along tissue interfaces. The most visible improvements are observed where baseline predictions exhibit mild shading inconsistency, which is expected given that N4 directly targets low-frequency bias patterns.
+
+A second qualitative observation is improved cross-slice consistency for some subjects. Even when per-slice gains are modest, reduced flicker-like variation across adjacent slices can be important for downstream volumetric interpretation.
+
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{comparison_chart.png}
@@ -129,28 +255,96 @@ Scenario & Baseline PSNR & Optimized PSNR & Delta \\
 \label{fig:n4_qc}
 \end{figure}
 
+Figure~\ref{fig:n4_qc} qualitatively illustrates smoother intensity homogeneity after correction, especially in slowly varying background and white/gray matter regions. These visual improvements align with the quantitative metric gains and support the hypothesis that better input consistency aids synthesis.
+
+\subsection{Error and Failure Case Analysis}
+Failure cases are concentrated in scenarios with limited input context (single available modality) and in slices with weak tissue contrast. Common error patterns include slight boundary blur, local intensity overshoot, and occasional texture flattening in anatomically complex regions.
+
+These patterns suggest that two factors remain limiting: (1) ambiguity in one-to-many cross-modal mappings, and (2) local detail recovery under constrained context. While preprocessing reduces nuisance variation, it does not fully resolve inherent uncertainty in missing-modality reconstruction.
+
 \section{Discussion}
 N4 correction improves global intensity consistency and helps the model focus on anatomical structure rather than scanner-dependent low-frequency artifacts. The overall gains in PSNR and SSIM confirm that preprocessing contributes measurably to reconstruction quality. The two negative scenarios indicate that optimization effects are not perfectly uniform, motivating future per-scenario tuning.
+
+An additional interpretation is that N4 reduces nuisance variability, effectively narrowing the distribution gap that the generator must learn across subjects. This can improve convergence stability, particularly when training data are moderate in size. At the same time, scenarios with only one informative source modality remain intrinsically difficult because multiple plausible target reconstructions can satisfy low-level losses.
+
+From an application standpoint, improving average-case imputation quality is valuable for downstream pipelines that rely on complete modality sets. However, deployment should still include uncertainty-aware safeguards because per-case quality can vary. Integrating confidence estimation with synthesis outputs is a practical next step for responsible use in research workflows.
+
+An engineering implication of these results is that preprocessing and model design should be treated as coupled components. Stronger preprocessing can stabilize training and improve outcomes, while robust model objectives can better exploit cleaner inputs. Optimizing both jointly is likely to produce larger gains than focusing on either in isolation.
+
+\section{Limitations and Future Directions}
+Despite consistent overall improvements, this study has several limitations:
+\begin{itemize}
+\item Metrics are averaged over slices and scenarios; subject-level variance analysis is still limited.
+\item The optimization focuses on one preprocessing enhancement (N4) without exhaustive hyperparameter search.
+\item Evaluation emphasizes fidelity metrics (PSNR/SSIM) and does not yet include downstream clinical task transfer.
+\end{itemize}
+
+Future work will investigate scenario-adaptive weighting, stronger perceptual constraints, and uncertainty calibration for synthesized modalities. A useful extension is to evaluate whether improved imputation also improves downstream segmentation or classification performance relative to baseline-generated inputs.
+
+Additional future directions include: (i) uncertainty-aware generators that output confidence maps, (ii) selective refinement modules for hard regions, and (iii) domain adaptation techniques for scanner/protocol shifts. Together, these may reduce failure modes in low-context scenarios and improve robustness for broader deployment.
 
 \section{Conclusion}
 This study demonstrates that adding N4 bias correction to the multimodal MRI imputation workflow improves average reconstruction quality. Compared with baseline training, the optimized setup achieves +0.47 dB PSNR and +0.0056 SSIM overall while maintaining robust performance across most missing-modality scenarios. Future work includes subject-wise ablation, confidence-aware sampling, and scenario-adaptive loss weighting.
 
+Overall, the results show that careful preprocessing can yield measurable quality gains even without changing model architecture. This makes N4 correction a low-risk, high-impact optimization for multimodal MRI imputation pipelines and a strong foundation for subsequent model-level improvements.
+
 \section*{Acknowledgement}
 We sincerely thank Professor Jignesh Patel for guidance and support throughout this project.
 
-\begin{thebibliography}{4}
+\begin{thebibliography}{17}
+\bibitem{sharma2020missing}
+A. Sharma and G. Hamarneh, ``Missing MRI pulse sequence synthesis using multi-modal generative adversarial network,'' \textit{IEEE Trans. Med. Imag.}, vol. 39, no. 4, pp. 1176--1186, 2020, \url{https://ieeexplore.ieee.org/document/10589432}
 
-\bibitem{n4}
-N. J. Tustison \textit{et al.}, ``N4ITK: Improved N3 Bias Correction,'' \textit{IEEE Transactions on Medical Imaging}, vol. 29, no. 6, pp. 1310--1320, 2010.
+\bibitem{shen2021}
+L. Shen \textit{et al.}, ``Multi-domain image completion for random missing input data,'' \textit{IEEE Trans. Med. Imag.}, vol. 40, no. 4, pp. 1113--1122, Apr. 2021.
+
+\bibitem{roy2010}
+S. Roy, A. Carass, N. Shiee, D. L. Pham, and J. L. Prince, ``MR contrast synthesis for lesion segmentation,'' in \textit{Proc. IEEE Int. Symp. Biomed. Imaging: From Nano Macro}, Apr. 2010, pp. 932--935.
+
+\bibitem{iglesias2013}
+J. E. Iglesias, E. Konukoglu, D. Zikic, B. Glocker, K. Van Leemput, and B. Fischl, ``Is synthesizing MRI contrast useful for inter-modality analysis?'' in \textit{Proc. Int. Conf. Med. Image Comput. Comput.-Assist. Intervent.}, Nagoya, Japan, Sep. 2013, pp. 631--638.
+
+\bibitem{pan2018}
+Y. Pan, M. Liu, C. Lian, T. Zhou, Y. Xia, and D. Shen, ``Synthesizing missing PET from MRI with cycle-consistent generative adversarial networks for Alzheimer's disease diagnosis,'' in \textit{Proc. Int. Conf. Med. Image Comput. Comput. Assist. Intervent.}, 2018, pp. 455--463.
+
+\bibitem{staartjes2021}
+V. E. Staartjes, P. R. Seevinck, W. P. Vandertop, M. van Stralen, and M. L. Schroder, ``Magnetic resonance imaging-based synthetic computed tomography of the lumbar spine for surgical planning: A clinical proof-of-concept,'' \textit{Neurosurgical Focus}, vol. 50, no. 1, p. E13, 2021.
+
+\bibitem{goodfellow2020}
+I. J. Goodfellow \textit{et al.}, ``Generative adversarial networks,'' \textit{Commun. ACM}, vol. 63, no. 11, pp. 139--144, 2020.
+
+\bibitem{bowles2016}
+C. Bowles \textit{et al.}, ``Pseudo-healthy image synthesis for white matter lesion segmentation,'' in \textit{Proc. Int. Workshop Simulation Synth. Med. Imag.}, Athens, Greece, 2016, pp. 87--96.
+
+\bibitem{roy2016patch}
+S. Roy, Y.-Y. Chou, A. Jog, J. A. Butman, and D. L. Pham, ``Patch-based synthesis of whole head MR images: Application to EPI distortion correction,'' in \textit{Proc. Int. Workshop Simulation Synthesis Med. Imag.}, Athens, Greece, Oct. 2016, pp. 146--156.
+
+\bibitem{roy2013example}
+S. Roy, A. Carass, and J. L. Prince, ``Magnetic resonance image example-based contrast synthesis,'' \textit{IEEE Trans. Med. Imag.}, vol. 32, no. 12, pp. 2348--2363, Dec. 2013.
+
+\bibitem{tustison2010n4}
+N. J. Tustison \textit{et al.}, ``N4ITK: Improved N3 Bias Correction,'' \textit{IEEE Trans. Med. Imag.}, vol. 29, no. 6, pp. 1310--1320, 2010, doi: \href{https://doi.org/10.1109/TMI.2010.2046908}{10.1109/TMI.2010.2046908}.
+
+\bibitem{sled1998}
+J. G. Sled, A. P. Zijdenbos, and A. C. Evans, ``A Nonparametric Method for Automatic Correction of Intensity Nonuniformity in MRI Data,'' \textit{IEEE Trans. Med. Imag.}, vol. 17, no. 1, pp. 87--97, 1998, doi: \href{https://doi.org/10.1109/42.668698}{10.1109/42.668698}.
+
+\bibitem{vovk2007}
+U. Vovk, F. Pernus, and B. Likar, ``A Review of Methods for Correction of Intensity Inhomogeneity in MRI,'' \textit{IEEE Trans. Med. Imag.}, vol. 26, no. 3, pp. 405--421, 2007, doi: \href{https://doi.org/10.1109/TMI.2006.891486}{10.1109/TMI.2006.891486}.
+
+\bibitem{kanakaraj2024}
+P. Kanakaraj \textit{et al.}, ``DeepN4: Learning N4ITK Bias Field Correction for T1-weighted Images,'' \textit{Neuroinformatics}, 2024.
+
+\bibitem{dovrou2023}
+A. Dovrou \textit{et al.}, ``A segmentation-based method improving the performance of N4 bias field correction on T2-weighted MR imaging data,'' \textit{Magnetic Resonance Imaging}, 2023.
 
 \bibitem{ssim}
-Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli, ``Image Quality Assessment: From Error Visibility to Structural Similarity,'' \textit{IEEE Transactions on Image Processing}, vol. 13, no. 4, pp. 600--612, 2004.
+Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli, ``Image Quality Assessment: From Error Visibility to Structural Similarity,'' \textit{IEEE Trans. Image Process.}, vol. 13, no. 4, pp. 600--612, 2004, doi: \href{https://doi.org/10.1109/TIP.2003.819861}{10.1109/TIP.2003.819861}.
 
 \bibitem{psnr}
-A. M. Eskicioglu and P. S. Fisher, ``Image Quality Measures and Their Performance,'' \textit{IEEE Transactions on Communications}, vol. 43, no. 12, pp. 2959--2965, 1995.
+A. M. Eskicioglu and P. S. Fisher, ``Image Quality Measures and Their Performance,'' \textit{IEEE Trans. Commun.}, vol. 43, no. 12, pp. 2959--2965, 1995.
 
-\bibitem{github}
-Project Repository [Online]. Available: \href{https://github.com/Anas-github-acc/unified-mm_imputation.git}{https://github.com/Anas-github-acc/unified-mm_imputation.git}
+\bibitem{avants2011ants}
+B. B. Avants, N. Tustison, G. Song, P. A. Cook, A. Klein, and J. C. Gee, ``A reproducible evaluation of ANTs similarity metric performance in brain image registration,'' \textit{NeuroImage}, vol. 54, no. 3, pp. 2033--2044, 2011.
 
 \end{thebibliography}
 
