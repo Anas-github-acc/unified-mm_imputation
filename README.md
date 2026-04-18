@@ -9,7 +9,7 @@
 
 ---
 
-Video Presentation - [Phase 1](https://youtu.be/gjzvMJUfVb4) and [Phase 2](z)
+Video Presentation - [Phase 1](https://youtu.be/gjzvMJUfVb4) and [Phase 2](https://youtu.be/561s3NkljGA)
 ---
 Original Paper avaiable at [Unified Multi-Modal Image Synthesis for Missing Modality Imputation](https://ieeexplore.ieee.org/document/10589432) 
 
